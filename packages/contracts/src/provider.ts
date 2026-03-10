@@ -85,6 +85,11 @@ export const ProviderSendTurnInput = Schema.Struct({
 });
 export type ProviderSendTurnInput = typeof ProviderSendTurnInput.Type;
 
+export const ProviderCompactThreadInput = Schema.Struct({
+  threadId: ThreadId,
+});
+export type ProviderCompactThreadInput = typeof ProviderCompactThreadInput.Type;
+
 export const ProviderTurnStartResult = Schema.Struct({
   threadId: ThreadId,
   turnId: TurnId,

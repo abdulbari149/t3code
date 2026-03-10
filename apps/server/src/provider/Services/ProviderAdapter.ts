@@ -13,6 +13,7 @@ import type {
   ProviderKind,
   ProviderUserInputAnswers,
   ProviderRuntimeEvent,
+  ProviderCompactThreadInput,
   ProviderSendTurnInput,
   ProviderSession,
   ProviderSessionStartInput,
@@ -62,6 +63,11 @@ export interface ProviderAdapterShape<TError> {
   readonly sendTurn: (
     input: ProviderSendTurnInput,
   ) => Effect.Effect<ProviderTurnStartResult, TError>;
+
+  /**
+   * Compact an active provider thread.
+   */
+  readonly compactThread: (input: ProviderCompactThreadInput) => Effect.Effect<void, TError>;
 
   /**
    * Interrupt an active turn.

@@ -288,6 +288,25 @@ function runtimeEventToActivities(
       ];
     }
 
+    case "thread.state.changed": {
+      if (event.payload.state !== "compacted") {
+        return [];
+      }
+      return [
+        {
+          id: event.eventId,
+          createdAt: event.createdAt,
+          tone: "info",
+          kind: "thread.compaction.completed",
+          summary: "Context compacted",
+          payload:
+            event.payload.detail !== undefined ? { detail: event.payload.detail } : {},
+          turnId: toTurnId(event.turnId) ?? null,
+          ...maybeSequence,
+        },
+      ];
+    }
+
     case "turn.plan.updated": {
       return [
         {

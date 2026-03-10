@@ -30,6 +30,7 @@ type ProviderIntentEvent = Extract<
   {
     type:
       | "thread.runtime-mode-set"
+      | "thread.compact-start-requested"
       | "thread.turn-start-requested"
       | "thread.turn-interrupt-requested"
       | "thread.approval-response-requested"
@@ -149,6 +150,7 @@ const make = Effect.gen(function* () {
   const appendProviderFailureActivity = (input: {
     readonly threadId: ThreadId;
     readonly kind:
+      | "thread.compaction.failed"
       | "provider.turn.start.failed"
       | "provider.turn.interrupt.failed"
       | "provider.approval.respond.failed"
@@ -173,6 +175,30 @@ const make = Effect.gen(function* () {
           detail: input.detail,
           ...(input.requestId ? { requestId: input.requestId } : {}),
         },
+        turnId: input.turnId,
+        createdAt: input.createdAt,
+      },
+      createdAt: input.createdAt,
+    });
+
+  const appendInfoActivity = (input: {
+    readonly threadId: ThreadId;
+    readonly kind: "thread.compaction.requested";
+    readonly summary: string;
+    readonly payload?: Record<string, unknown>;
+    readonly turnId: TurnId | null;
+    readonly createdAt: string;
+  }) =>
+    orchestrationEngine.dispatch({
+      type: "thread.activity.append",
+      commandId: serverCommandId("provider-info-activity"),
+      threadId: input.threadId,
+      activity: {
+        id: EventId.makeUnsafe(crypto.randomUUID()),
+        tone: "info",
+        kind: input.kind,
+        summary: input.summary,
+        payload: input.payload ?? {},
         turnId: input.turnId,
         createdAt: input.createdAt,
       },
@@ -504,6 +530,34 @@ const make = Effect.gen(function* () {
     yield* providerService.interruptTurn({ threadId: event.payload.threadId });
   });
 
+  const processCompactStartRequested = Effect.fnUntraced(function* (
+    event: Extract<ProviderIntentEvent, { type: "thread.compact-start-requested" }>,
+  ) {
+    yield* appendInfoActivity({
+      threadId: event.payload.threadId,
+      kind: "thread.compaction.requested",
+      summary: "Context compaction started",
+      turnId: null,
+      createdAt: event.payload.createdAt,
+    });
+
+    yield* Effect.gen(function* () {
+      yield* ensureSessionForThread(event.payload.threadId, event.payload.createdAt);
+      yield* providerService.compactThread({ threadId: event.payload.threadId });
+    }).pipe(
+      Effect.catch((error) =>
+        appendProviderFailureActivity({
+          threadId: event.payload.threadId,
+          kind: "thread.compaction.failed",
+          summary: "Context compaction failed",
+          detail: toErrorMessage(error),
+          turnId: null,
+          createdAt: event.payload.createdAt,
+        }),
+      ),
+    );
+  });
+
   const processApprovalResponseRequested = Effect.fnUntraced(function* (
     event: Extract<ProviderIntentEvent, { type: "thread.approval-response-requested" }>,
   ) {
@@ -641,6 +695,9 @@ const make = Effect.gen(function* () {
           );
           return;
         }
+        case "thread.compact-start-requested":
+          yield* processCompactStartRequested(event);
+          return;
         case "thread.turn-start-requested":
           yield* processTurnStartRequested(event);
           return;
@@ -684,6 +741,7 @@ const make = Effect.gen(function* () {
       Stream.runForEach(orchestrationEngine.streamDomainEvents, (event) => {
         if (
           event.type !== "thread.runtime-mode-set" &&
+          event.type !== "thread.compact-start-requested" &&
           event.type !== "thread.turn-start-requested" &&
           event.type !== "thread.turn-interrupt-requested" &&
           event.type !== "thread.approval-response-requested" &&

@@ -8,8 +8,10 @@ import {
   OrchestrationGetTurnDiffInput,
   OrchestrationSession,
   ProjectCreateCommand,
+  ClientOrchestrationCommand,
   ThreadTurnStartCommand,
   ThreadCreatedPayload,
+  ThreadCompactStartRequestedPayload,
   ThreadTurnDiff,
   ThreadTurnStartRequestedPayload,
 } from "./orchestration";
@@ -17,7 +19,11 @@ import {
 const decodeTurnDiffInput = Schema.decodeUnknownEffect(OrchestrationGetTurnDiffInput);
 const decodeThreadTurnDiff = Schema.decodeUnknownEffect(ThreadTurnDiff);
 const decodeProjectCreateCommand = Schema.decodeUnknownEffect(ProjectCreateCommand);
+const decodeClientOrchestrationCommand = Schema.decodeUnknownEffect(ClientOrchestrationCommand);
 const decodeThreadTurnStartCommand = Schema.decodeUnknownEffect(ThreadTurnStartCommand);
+const decodeThreadCompactStartRequestedPayload = Schema.decodeUnknownEffect(
+  ThreadCompactStartRequestedPayload,
+);
 const decodeThreadTurnStartRequestedPayload = Schema.decodeUnknownEffect(
   ThreadTurnStartRequestedPayload,
 );
@@ -186,6 +192,19 @@ it.effect("accepts provider-scoped model options in thread.turn.start", () =>
   }),
 );
 
+it.effect("decodes thread.compact.start client commands", () =>
+  Effect.gen(function* () {
+    const parsed = yield* decodeClientOrchestrationCommand({
+      type: "thread.compact.start",
+      commandId: "cmd-compact-1",
+      threadId: "thread-1",
+      createdAt: "2026-01-01T00:00:00.000Z",
+    });
+    assert.strictEqual(parsed.type, "thread.compact.start");
+    assert.strictEqual(parsed.threadId, "thread-1");
+  }),
+);
+
 it.effect(
   "decodes thread.turn-start-requested defaults for provider, runtime mode, and interaction mode",
   () =>
@@ -199,6 +218,16 @@ it.effect(
       assert.strictEqual(parsed.runtimeMode, DEFAULT_RUNTIME_MODE);
       assert.strictEqual(parsed.interactionMode, DEFAULT_PROVIDER_INTERACTION_MODE);
     }),
+);
+
+it.effect("decodes thread.compact-start-requested payloads", () =>
+  Effect.gen(function* () {
+    const parsed = yield* decodeThreadCompactStartRequestedPayload({
+      threadId: "thread-1",
+      createdAt: "2026-01-01T00:00:00.000Z",
+    });
+    assert.strictEqual(parsed.threadId, "thread-1");
+  }),
 );
 
 it.effect("decodes orchestration session runtime mode defaults", () =>

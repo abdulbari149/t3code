@@ -1380,6 +1380,12 @@ const makeCodexAdapter = (options?: CodexAdapterLiveOptions) =>
         catch: (cause) => toRequestError(threadId, "turn/interrupt", cause),
       });
 
+    const compactThread: CodexAdapterShape["compactThread"] = (input) =>
+      Effect.tryPromise({
+        try: () => manager.compactThread(input.threadId),
+        catch: (cause) => toRequestError(input.threadId, "thread/compact/start", cause),
+      });
+
     const readThread: CodexAdapterShape["readThread"] = (threadId) =>
       Effect.tryPromise({
         try: () => manager.readThread(threadId),
@@ -1496,6 +1502,7 @@ const makeCodexAdapter = (options?: CodexAdapterLiveOptions) =>
       },
       startSession,
       sendTurn,
+      compactThread,
       interruptTurn,
       readThread,
       rollbackThread,

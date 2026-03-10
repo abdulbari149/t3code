@@ -12,6 +12,7 @@
 import {
   NonNegativeInt,
   ThreadId,
+  ProviderCompactThreadInput,
   ProviderInterruptTurnInput,
   ProviderRespondToRequestInput,
   ProviderRespondToUserInputInput,
@@ -291,9 +292,13 @@ const makeProviderService = (options?: ProviderServiceLiveOptions) =>
           );
         }
 
-        yield* upsertSessionBinding(session, threadId, {
-          ...(input.providerOptions !== undefined ? { providerOptions: input.providerOptions } : {}),
-        });
+        yield* upsertSessionBinding(
+          session,
+          threadId,
+          input.providerOptions !== undefined
+            ? { providerOptions: input.providerOptions }
+            : undefined,
+        );
         yield* analytics.record("provider.session.started", {
           provider: session.provider,
           runtimeMode: input.runtimeMode,
@@ -348,6 +353,24 @@ const makeProviderService = (options?: ProviderServiceLiveOptions) =>
           hasInput: typeof input.input === "string" && input.input.trim().length > 0,
         });
         return turn;
+      });
+
+    const compactThread: ProviderServiceShape["compactThread"] = (rawInput) =>
+      Effect.gen(function* () {
+        const input = yield* decodeInputOrValidationError({
+          operation: "ProviderService.compactThread",
+          schema: ProviderCompactThreadInput,
+          payload: rawInput,
+        });
+        const routed = yield* resolveRoutableSession({
+          threadId: input.threadId,
+          operation: "ProviderService.compactThread",
+          allowRecovery: true,
+        });
+        yield* routed.adapter.compactThread(input);
+        yield* analytics.record("provider.thread.compacted", {
+          provider: routed.adapter.provider,
+        });
       });
 
     const interruptTurn: ProviderServiceShape["interruptTurn"] = (rawInput) =>
@@ -530,6 +553,7 @@ const makeProviderService = (options?: ProviderServiceLiveOptions) =>
     return {
       startSession,
       sendTurn,
+      compactThread,
       interruptTurn,
       respondToRequest,
       respondToUserInput,

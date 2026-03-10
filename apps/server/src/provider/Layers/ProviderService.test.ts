@@ -165,6 +165,11 @@ function makeFakeCodexAdapter(provider: ProviderKind = "codex") {
       Effect.succeed({ threadId, turns: [] }),
   );
 
+  const compactThread = vi.fn(
+    (_input: { readonly threadId: ThreadId }): Effect.Effect<void, ProviderAdapterError> =>
+      Effect.void,
+  );
+
   const stopAll = vi.fn(
     (): Effect.Effect<void, ProviderAdapterError> =>
       Effect.sync(() => {
@@ -179,6 +184,7 @@ function makeFakeCodexAdapter(provider: ProviderKind = "codex") {
     },
     startSession,
     sendTurn,
+    compactThread,
     interruptTurn,
     respondToRequest,
     respondToUserInput,
