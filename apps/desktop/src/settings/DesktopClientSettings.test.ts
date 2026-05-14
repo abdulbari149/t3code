@@ -1,6 +1,6 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, describe, it } from "@effect/vitest";
-import { ClientSettingsSchema, type ClientSettings } from "@t3tools/contracts";
+import { ClientSettingsSchema, type ClientSettings, ProviderInstanceId } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -179,6 +179,72 @@ describe("DesktopClientSettings", () => {
         yield* fileSystem.writeFileString(environment.clientSettingsPath, "{not-json");
 
         assert.isTrue(Option.isNone(yield* settings.get));
+      }),
+    ),
+  );
+
+  it.effect("persists and round-trips activeCodexInstanceId when set to a valid instance id", () =>
+    withClientSettings(
+      Effect.gen(function* () {
+        const settings = yield* DesktopClientSettings.DesktopClientSettings;
+        const instanceId = ProviderInstanceId.make("codex_work");
+        yield* settings.set({
+          ...clientSettings,
+          activeCodexInstanceId: instanceId,
+        });
+
+        const persisted = yield* settings.get;
+        assert.isTrue(Option.isSome(persisted));
+        if (Option.isSome(persisted)) {
+          assert.equal(persisted.value.activeCodexInstanceId, instanceId);
+        }
+      }),
+    ),
+  );
+
+  it.effect("clears activeCodexInstanceId when patched with undefined", () =>
+    withClientSettings(
+      Effect.gen(function* () {
+        const settings = yield* DesktopClientSettings.DesktopClientSettings;
+        const instanceId = ProviderInstanceId.make("codex_personal");
+
+        yield* settings.set({
+          ...clientSettings,
+          activeCodexInstanceId: instanceId,
+        });
+
+        yield* settings.set({
+          ...clientSettings,
+          activeCodexInstanceId: undefined,
+        });
+
+        const persisted = yield* settings.get;
+        assert.isTrue(Option.isSome(persisted));
+        if (Option.isSome(persisted)) {
+          assert.isUndefined(persisted.value.activeCodexInstanceId);
+        }
+      }),
+    ),
+  );
+
+  it.effect("decodes existing settings files that omit activeCodexInstanceId without error", () =>
+    withClientSettings(
+      Effect.gen(function* () {
+        const environment = yield* DesktopEnvironment.DesktopEnvironment;
+        const fileSystem = yield* FileSystem.FileSystem;
+        const settings = yield* DesktopClientSettings.DesktopClientSettings;
+        yield* fileSystem.makeDirectory(environment.stateDir, { recursive: true });
+        yield* fileSystem.writeFileString(
+          environment.clientSettingsPath,
+          `{"timestampFormat": "24-hour"}\n`,
+        );
+
+        const persisted = yield* settings.get;
+        assert.isTrue(Option.isSome(persisted));
+        if (Option.isSome(persisted)) {
+          assert.isUndefined(persisted.value.activeCodexInstanceId);
+          assert.equal(persisted.value.timestampFormat, "24-hour");
+        }
       }),
     ),
   );
